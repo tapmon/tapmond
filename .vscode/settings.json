@@ -1,0 +1,10 @@
+{
+    "go.testFlags": [
+        "-count=1",
+        "-v",
+        "-timeout=300s"
+    ],
+    "go.testEnvVars": {
+    },
+    "go.formatTool": "default",
+}

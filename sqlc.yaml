@@ -1,0 +1,10 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    schema: "mondb/sqlc/migrations"
+    queries: "mondb/sqlc/queries"
+    gen:
+      go:
+        out: mondb/sqlc
+        package: sqlc
+        emit_interface: true

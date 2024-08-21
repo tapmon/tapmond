@@ -2,8 +2,10 @@ package tapmond
 
 import (
 	"github.com/btcsuite/btclog"
+	"github.com/lightningnetwork/lnd"
 	"github.com/lightningnetwork/lnd/build"
 	"github.com/lightningnetwork/lnd/signal"
+	"github.com/tapmon/tapmond/mons"
 )
 
 var (
@@ -38,14 +40,15 @@ func UseLogger(logger btclog.Logger) {
 
 // SetupLoggers initializes all package-global logger variables.
 func SetupLoggers(root *build.RotatingLogWriter, intercept signal.Interceptor) {
-
-	logWriter = root
 	genLogger := genSubLogger(root, intercept)
 
+	logWriter = root
 	log = build.NewSubLogger(Subsystem, genLogger)
 	interceptor = intercept
 
-	// Add the lightning-terminal root logger.
+	lnd.SetSubLogger(root, Subsystem, log)
+
+	lnd.AddSubLogger(root, mons.Subsystem, intercept, mons.UseLogger)
 }
 
 // genSubLogger creates a logger for a subsystem. We provide an instance of

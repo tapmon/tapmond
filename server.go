@@ -1,29 +1,53 @@
 package tapmond
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/lightninglabs/lndclient"
+	"github.com/lightninglabs/taproot-assets/taprpc"
 	"github.com/lightningnetwork/lnd/build"
 	"github.com/lightningnetwork/lnd/lncfg"
+	"github.com/lightningnetwork/lnd/macaroons"
 	"github.com/lightningnetwork/lnd/signal"
+	"github.com/tapmon/tapmond/mons"
+	"github.com/tapmon/tapmond/tapmonrpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"gopkg.in/macaroon.v2"
 )
 
+type TapmondConfig struct {
+	lndClient  *lndclient.GrpcLndServices
+	tapasConn  *grpc.ClientConn
+	tapmonRpc  *TapmonRpcServer
+	monManager *mons.Manager
+}
+
 type Tapmond struct {
+	cfg *TapmondConfig
+
 	rpcServer *TapmonRpcServer
 
 	wg sync.WaitGroup
 }
 
 func InitTapmond() (*Tapmond, error) {
-	return &Tapmond{}, nil
+	return &Tapmond{
+		cfg: &TapmondConfig{},
+	}, nil
 }
 
 func (t *Tapmond) Run() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	config := DefaultConfig()
 
 	// Parse command line flags.
@@ -109,6 +133,65 @@ func (t *Tapmond) Run() error {
 	// Print the version before executing either primary directive.
 	log.Infof("Version: %v", Version())
 
+	// Create our lnd client.
+	lndclient, err := lndclient.NewLndServices(&lndclient.LndServicesConfig{
+		LndAddress:         config.Lnd.Host,
+		TLSPath:            config.Lnd.TLSPath,
+		CustomMacaroonPath: config.Lnd.MacaroonPath,
+		Network:            lndclient.Network(config.Network),
+	})
+	if err != nil {
+		return err
+	}
+	lndGi, err := lndclient.Client.GetInfo(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to connect to lnd: %v", err)
+	}
+	defer lndclient.Close()
+	log.Infof("Connected to lnd %x", lndGi.IdentityPubkey)
+	t.cfg.lndClient = lndclient
+
+	tapasConn, err := getGrpcConnection(
+		config.TaprootAssets.Host, config.TaprootAssets.TLSPath, config.TaprootAssets.MacaroonPath,
+	)
+	if err != nil {
+		return err
+	}
+
+	t.cfg.tapasConn = tapasConn
+
+	// Test the taproot assets connection.
+	tapClient := taprpc.NewTaprootAssetsClient(tapasConn)
+	tapGI, err := tapClient.GetInfo(ctx, &taprpc.GetInfoRequest{})
+	if err != nil {
+		return fmt.Errorf("unable to connect to taproot assets: %v", err)
+	}
+
+	log.Infof("Connected to taproot assets client with version %v", tapGI.Version)
+
+	// Create the tapmon manager.
+	t.cfg.monManager = mons.NewManager(tapasConn, lndclient.ChainNotifier, lndclient.ChainKit)
+
+	// Create the tapmon grpc server.
+	t.rpcServer = NewTapmonRpcServer(t.cfg.monManager)
+
+	// Start the tapmon grpc server.
+	grpcServer := grpc.NewServer()
+	tapmonrpc.RegisterTapmonServer(grpcServer, t.rpcServer)
+	log.Infof("Tapmon server listening on %v", config.RPCListen)
+	listener, err := net.Listen("tcp", config.RPCListen)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	t.wg.Add(1)
+	go func() {
+		defer t.wg.Done()
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Errorf("Tapmon server failed to serve: %v", err)
+		}
+	}()
+
 	// t.wg.Add(1)
 	// go func() {
 
@@ -117,6 +200,10 @@ func (t *Tapmond) Run() error {
 	// t.wg.Wait()
 	log.Infof("Tapmond running, waiting for cancel")
 	<-shutdownInterceptor.ShutdownChannel()
+	grpcServer.GracefulStop()
+	t.wg.Wait()
+	log.Infof("Tapmond shutdown complete")
+
 	return nil
 }
 
@@ -141,4 +228,38 @@ func getConfigPath(cfg Config, tapmonDir string) (string, bool) {
 	// not set a config file path. We use our default tapmon dir, namespaced
 	// by network.
 	return filepath.Join(tapmonDir, cfg.Network, defaultConfigFilename), false
+}
+
+// getGrpcConnection returns a connection to the gRPC server of the taproot assets daemon.
+func getGrpcConnection(host, tlspath, macaroonpath string) (*grpc.ClientConn, error) {
+	// First get the TLS credentials for the connection.
+	tlsCreds, err := credentials.NewClientTLSFromFile(tlspath, "")
+	if err != nil {
+		return nil, fmt.Errorf("unable to read TLS credentials: %v", err)
+	}
+
+	// Load the macaroon file.
+	macBytes, err := ioutil.ReadFile(macaroonpath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read macaroon file: %v", err)
+	}
+
+	var m macaroon.Macaroon
+	if err = m.UnmarshalBinary(macBytes); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal macaroon: %v", err)
+	}
+	// Create the macaroon credentials.
+	macCreds, err := macaroons.NewMacaroonCredential(&m)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create macaroon credentials: %v", err)
+	}
+
+	// Dial the gRPC server.
+	conn, err := grpc.Dial(host, grpc.WithTransportCredentials(tlsCreds),
+		grpc.WithPerRPCCredentials(macCreds))
+	if err != nil {
+		return nil, fmt.Errorf("unable to dial gRPC server: %v", err)
+	}
+
+	return conn, nil
 }

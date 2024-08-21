@@ -1,8 +1,8 @@
 PKG := github.com/tapmon/tapmond
 
 
-include make/release_flags.mk
-include make/testing_flags.mk
+#include make/release_flags.mk
+#include make/testing_flags.mk
 
 
 GOBUILD := go build -v

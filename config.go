@@ -20,9 +20,9 @@ var (
 	TapmonDirBase = btcutil.AppDataDir("tapmond", false)
 
 	// DefaultNetwork is the default bitcoin network tapmond runs on.
-	DefaultNetwork = "mainnet"
+	DefaultNetwork = "testnet"
 
-	defaultLogLevel    = "info"
+	defaultLogLevel    = "debug"
 	defaultLogDirname  = "logs"
 	defaultLogFilename = "tapmond.log"
 

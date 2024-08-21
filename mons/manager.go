@@ -3,13 +3,18 @@ package mons
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/lightninglabs/lndclient"
 	"github.com/lightninglabs/taproot-assets/taprpc"
 	"github.com/lightninglabs/taproot-assets/taprpc/mintrpc"
 	"github.com/lightningnetwork/lnd/chainntnfs"
+	"google.golang.org/grpc"
+)
+
+var (
+	tapmonV1NameFormatting = "tapmon-V1-%v"
 )
 
 type MonMetadata struct {
@@ -23,9 +28,16 @@ type Manager struct {
 	chainKit      lndclient.ChainKitClient
 }
 
-func NewManager(client taprpc.TaprootAssetsClient) *Manager {
+func NewManager(tapdConn *grpc.ClientConn, chainNotifier lndclient.ChainNotifierClient,
+	chainKit lndclient.ChainKitClient) *Manager {
+
+	log.Debug("Creating new mon manager")
+
 	return &Manager{
-		tapClient: client,
+		tapClient:     taprpc.NewTaprootAssetsClient(tapdConn),
+		mintClient:    mintrpc.NewMintClient(tapdConn),
+		chainNotifier: chainNotifier,
+		chainKit:      chainKit,
 	}
 }
 
@@ -48,12 +60,14 @@ func (m *Manager) MintMon(ctx context.Context, name string) (*Mon, error) {
 	_, err = m.mintClient.MintAsset(
 		ctx, &mintrpc.MintAssetRequest{
 			Asset: &mintrpc.MintAsset{
-				Name:         name,
+				Name:         fmt.Sprintf(tapmonV1NameFormatting, name),
 				AssetVersion: taprpc.AssetVersion_ASSET_VERSION_V1,
 				AssetMeta: &taprpc.AssetMeta{
 					Type: taprpc.AssetMetaType_META_TYPE_JSON,
 					Data: monMetadataBytes,
 				},
+				Amount:    1,
+				AssetType: taprpc.AssetType_COLLECTIBLE,
 			},
 		},
 	)
@@ -67,7 +81,7 @@ func (m *Manager) MintMon(ctx context.Context, name string) (*Mon, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Batch txid: %v\n", finalizeRes.Batch.BatchTxid)
+	log.Debugf("Batch txid: %v\n", finalizeRes.Batch.BatchTxid)
 
 	batchHash, err := chainhash.NewHashFromStr(finalizeRes.Batch.BatchTxid)
 	if err != nil {
@@ -86,7 +100,7 @@ func (m *Manager) MintMon(ctx context.Context, name string) (*Mon, error) {
 	case <-errChan:
 		return nil, err
 	case conf = <-confChan:
-		log.Printf("Batch txid %v has been confirmed in block %v\n",
+		log.Debugf("Batch txid %v has been confirmed in block %v\n",
 			finalizeRes.Batch.BatchTxid, conf.Block)
 	}
 
@@ -95,7 +109,7 @@ func (m *Manager) MintMon(ctx context.Context, name string) (*Mon, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Minted Mon: %v\n", mintedMon)
+	log.Debugf("Minted Mon: %v\n", mintedMon)
 
 	return mintedMon, nil
 }

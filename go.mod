@@ -25,7 +25,10 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/NebulousLabs/fastrand v0.0.0-20181203155948-6fb6489aac4e // indirect
+	github.com/NebulousLabs/go-upnp v0.0.0-20180202185039-29b680b06c82 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
+	github.com/Yawning/aez v0.0.0-20211027044916-e49e68abd344 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/aead/siphash v1.0.1 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
@@ -103,6 +106,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/pgx/v4 v4.18.2 // indirect
+	github.com/jackpal/gateway v1.0.5 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jonboulle/clockwork v0.2.2 // indirect
@@ -124,7 +128,6 @@ require (
 	github.com/libp2p/go-reuseport v0.4.0 // indirect
 	github.com/libp2p/go-yamux/v4 v4.0.1 // indirect
 	github.com/lightninglabs/gozmq v0.0.0-20191113021534-d20a764486bf // indirect
-	github.com/lightninglabs/lightning-node-connect/hashmailrpc v1.0.2 // indirect
 	github.com/lightninglabs/neutrino v0.16.1-0.20240425105051-602843d34ffd // indirect
 	github.com/lightninglabs/neutrino/cache v1.1.2 // indirect
 	github.com/lightningnetwork/lightning-onion v1.2.1-0.20230823005744-06182b1d7d2f // indirect
@@ -210,6 +213,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 // indirect
+	github.com/tv42/zbase32 v0.0.0-20160707012821-501572607d02 // indirect
 	github.com/wlynxg/anet v0.0.3 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
@@ -217,6 +221,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
+	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.12 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.12 // indirect
@@ -270,4 +275,4 @@ require (
 
 replace google.golang.org/protobuf => github.com/lightninglabs/protobuf-go-hex-display v1.33.0-hex-display
 
-replace github.com/lightninglabs/taproot-assets => ../../lightninglabs/taproot-assets
+//replace github.com/lightninglabs/taproot-assets => ../../lightninglabs/taproot-assets
